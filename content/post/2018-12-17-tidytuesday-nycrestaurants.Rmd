@@ -1,0 +1,145 @@
+---
+title: "NYC Restaurant Inspections"
+subtitle: "#TidyTuesday 2018 Week 37"
+authors: ["admin"]
+date: '2018-12-17'
+slug: tidytuesday-nycrestaurants
+categories: ["RStats"]
+tags: ["#TidyTuesday"]
+---
+
+Week 2! Again, I found the most difficult part of this process to be diving into a random set of data and trying to pull out something interesting.  Toss me some baseball or political data, and I have an idea of the questions I want to ask, but data on NYC restaurant inspections is a little trickier.
+
+In the [NYC Restaurant Inspections data](https://github.com/rfordatascience/tidytuesday/tree/master/data/2018-12-11) each row is a unique inspection/violation - so one restaurant may have multiple records from the same date, but with different violations. Meaning the number of restaurants per borough, by cuisine, etc. are skewed towards the restaurants that received multiple violations. 
+
+So the first thing I had to do was decide - did I want to look at restaurant level data, something like cuisine by borough? Or do an analysis of the inspections?
+
+Of course, I ended up making 2 charts - **The # of Inspections per Borough per Year**, and **Cuisines with the Highest Percentage of Critical Violations.**
+
+### Data/Setup
+
+```{r, echo=TRUE, results='hide', warning=FALSE, message=FALSE}
+
+library(tidyverse)
+library(lubridate)
+library(skimr)
+library(janitor)
+
+restaurants_raw <- read_csv("https://data.cityofnewyork.us/api/views/43nn-pn8j/rows.csv")
+
+## use janitor::clean_names to put column names in snake_case
+## mutate boro to replace all "Missing" values with zipcode == 11249 to "BROOKLYN"" - leaves only 4 NA values
+
+restaurants <- restaurants_raw %>%
+  clean_names() %>%
+  dplyr::select (-phone, -grade_date, -record_date, -building, - street) %>%
+  mutate(boro = if_else(boro == "Missing", case_when(boro == "Missing" & zipcode == 11249 ~ "BROOKLYN"), boro),
+         inspection_date = mdy(inspection_date)) %>%
+  filter(!is.na(boro))
+
+restaurants$cuisine_description[str_detect(restaurants$cuisine_description, "Latin")] <- "Latin" 
+
+theme_set(theme_light())
+
+```
+
+### Inspections per borough per year
+
+There's only data for the past couple of years (since 2011), but I started by looking at the number of inspections per borough per year. As mentioned above, each row in the data set corresponds to a violation uncovered during an inspection - so a single inspection of one restaurant might have multiple rows documenting multiple violations. For example:
+```{r chairs, include = TRUE, warning = FALSE}
+restaurants %>% 
+  filter(dba == "12 CHAIRS") %>%
+  dplyr::select(camis, dba, inspection_date, violation_code) %>%
+  arrange(inspection_date)
+```
+I needed the actual number of inspections, and not the number of **violations**.
+
+```{r inspections, echo=TRUE, warning=FALSE, message=FALSE}
+inspections <- restaurants %>%
+  dplyr::select(camis, dba, boro, inspection_date) %>%
+  distinct(camis, dba, boro, inspection_date)
+
+inspections_by_year <- inspections %>%
+  mutate(year = year(inspection_date)) %>%
+  group_by(year, boro) %>%
+  summarize(inspections = n()) %>%
+  filter(year > 2014)
+
+inspections_by_year %>%
+  ggplot(aes(x = year, y = inspections, color = boro)) +
+  geom_line(size = 0.7) +
+  labs(x = "Year", y = "# of Inspections", title = "# of Inspections per Borough per Year",
+       color = "Borough")
+```
+
+### Cuisines with the Highest Percentage of Critical Violations
+
+Second I wanted to answer the question - If I'm travelling to NYC, what types of cuisines should I avoid? So I looked for the cuisines with the highest percentage of critical violations. (Warning - this got a bit messier than anticipated, so I'm apologizing in advance for some unruly code)
+
+
+```{r critical, echo=TRUE, warning=FALSE, message=FALSE}
+critical_inspections <- restaurants %>%
+  dplyr::select(camis, dba, boro, cuisine_description, critical_flag) %>%
+  mutate(critical = ifelse(critical_flag == "Critical", 1, 0)) 
+
+critical_by_cuisine <- critical_inspections %>%
+  group_by(cuisine_description) %>%
+  summarize(violations = n(),
+            critical = sum(critical),
+            non_critical = violations - critical,
+            percent_critical = round(critical/violations, 3)) %>%
+  filter(violations >= 5000) %>%
+  arrange(desc(percent_critical))
+
+top_critical_cuisine <- critical_by_cuisine %>%
+  head(n = 15) 
+
+top_critical_cuisine
+```
+
+To generate the plot I wanted, I had to gather the data, as shown below. The last two steps - creating ```cuisine_gather_totals``` and left joining with ```cuisine_gather```, was completed after I had made the initial plot. I realized I needed the percentage of critical violations in a different format than ```cuisine_gather``` provided.
+
+```{r gather, echo=TRUE, warning=FALSE, message=FALSE}
+cuisine_gather <- top_critical_cuisine %>%
+  dplyr::select(cuisine_description, critical, non_critical) %>%
+  gather(key = violations, value = value, critical:non_critical) %>%
+  arrange(cuisine_description)
+
+cuisine_gather_totals <- cuisine_gather %>%  
+  group_by(cuisine_description) %>%
+  summarize(total = sum(value))
+
+cuisine_gather_join <- cuisine_gather %>%
+  left_join(cuisine_gather_totals, by = c("cuisine_description" = "cuisine_description")) %>%
+  mutate(perc = round(value/total,3))
+```
+
+```{r plot, echo=TRUE, warning=FALSE, message=FALSE }
+
+cuisine_gather_join <- cuisine_gather_join %>%
+  mutate(labelpos = ifelse(violations == "critical", value/2, (total - value/2)))
+
+cuisine_gather_join %>%
+  ggplot(aes(x = fct_reorder2(cuisine_description, violations, perc), y = value, fill = fct_rev(violations))) +
+    geom_bar(stat = "identity") +
+  coord_flip() +
+  scale_fill_manual(values = c("gray76", "indianred2")) +
+  labs(x = "Cuisine", y = "# of Inspections", 
+       title = "Cuisines with the Highest Percentage of Critical Violations") +
+  guides(fill = guide_legend(title = "Violation Type")) +
+  geom_text(aes(label = paste0(100*perc, "%"), y = labelpos), size = 2)
+```
+
+While informative, I'm not avoiding Chinese, Italian, Delis, Bakeries, or Japanese while in New York...
+
+Also, not exactly the best designed visualization. The "# of Inspections" x-axis kind of makes it difficult to understand, and the varied number of inspections makes the sorting fct_reorder kind of a pain. Probably not how I would do it again, but overall good practice.
+
+### Resources
+I wanted to highlight and link to a couple of the resources I used while working on this. These helped generate some ideas and get through a couple of the trickier spots. 
+
+*  [David Robinson's Tidy Tuesday screencast](https://www.youtube.com/watch?v=em4FXPf4H-Y&t=1330s) - these are a weekly must watch. Watching a professional data scientist at work is an unbelievable resource, and the amount of knowledge in each of these videos is amazing.  
+* [Stack Overflow - "ggplot - use numeric values to fill stacked bar charts"](https://stackoverflow.com/questions/26079137/ggplot-use-numeric-values-to-fill-stacked-bar-charts): Needed this to figure out how to divide the columns in the bar chart up proportionally by critical/non-critical violations.  
+* [Stack Overflow - "In R's ggplot2, how to add percentage labels to a stacked barplot, with percentage values taken from separate columns?"](https://stackoverflow.com/questions/44724580/in-rs-ggplot2-how-to-add-percentage-labels-to-a-stacked-barplot-with-percenta): Needed this to label the columns with the percentages. 
+* [Dave Bloom's TidyTuesday plot](https://gitlab.com/tidy_tuesday/Week_37): I was scrolling through \#TidyTuesday on Twitter, I just really liked his custom theme. I also borrowed from his code to recode "Latin" in the cuisine_description.
+
+

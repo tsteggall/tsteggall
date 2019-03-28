@@ -1,0 +1,44 @@
+---
+title: "The Color of Law by Richard Rothstein"
+authors: ["admin"]
+date: '2018-12-12'
+slug: color-of-law
+categories: ["Books"]
+tags: ["2018", "Book Review"]
+---
+
+*The Color of Law* starts by presenting a series of Supreme Court decisions that cemented and popularized the myth of *de facto* segregation, not just in American jurisprudence, but in our culture. Rothstein points to opinions from Justice Potter Stewart in 1974, Justice Anthony Kennedy in 1992, and finishes with this quote from a Chief Justice John Roberts in 2007: "Where [racial imbalance] is a product not of state action but of private choices, it does not have constitutional implications." Rothstein spends the next 200+ pages methodically and systematically dismantling the argument that segregation was simply a product of social choices, and not the result of policies enacted by the federal, state and local governments (*de jure segregation*). 
+
+This book is clearly the work of years of research, and the evidence is damning. At times the book is a bit dry and dense, but the magnitude of evidence is necessary and overwhelming. Rothstein goes point by point - examining housing contracts, zoning laws, public housing mandates, state sanctioned violence, suppressed incomes, and more to refute the myth of de facto segregation that has taken hold in American society. Furthermore, Rothstein provides personal stories of the impact of the different forms of discrimination - if the research, facts, and explanation of the laws weren't enough, these stories provoke an emotional reaction. Similar to *The New Jim Crow*, *The Color of Law* shines a bright light on government-approved injustice, and makes the argument that unless we actively work to change, this default *de facto* explanation will allow our government and communities to look the other way while people continue to suffer.
+
+
+#### Related Readings
+
+[Failure Factories in Florida](http://www.tampabay.com/projects/2015/investigations/pinellas-failure-factories/): 
+
+> "On Dec. 18, 2007, the Pinellas County School Board abandoned integration. They justified the vote with bold promises: Schools in poor, black neighborhoods would get more money, more staff, more resources. They delivered none of that.
+This is the story of how district leaders turned five once-average schools into Failure Factories." 
+
+An amazing example of local journalism - a multi-part, Pulitzer Prize winning series by the Tampa Bay Times that examines the public schools in South St. Petersburg. 
+
+[Pollution, Poverty, and People of Color](https://www.scientificamerican.com/article/pollution-poverty-people-color-asthma-inner-city/):
+Another multi-part series detailing the relationship between poverty and asthma in low income communities across the country. [Part 2](https://www.scientificamerican.com/article/pollution-poverty-people-color-living-industry/) focuses on Richmond, CA and discusses many of the same issues related to housing, zoning, and segregation as Rothstein. It's devestating that our society simply accepts this as the current default, even in places like the progressive Bay Area.
+
+Continuing with the CA theme - Rothstein mentions Berkeley, Palo Alto, and Marin as cities that exploited housing laws to discriminate against African Americans. Three very affluent and liberal cities that "benefitted" from these laws. California is in the midst of a housing crisis, and of course, most of the housing plans are being met with familiar NIMBY arguments. After reading this book, those arguments sure seem a hell of a lot weaker. 
+
+**Similar books:**  
+
+* [Evicted](https://www.amazon.com/Evicted-Poverty-Profit-American-City/dp/0553447459/ref=sr_1_2?ie=UTF8&qid=1544640231&sr=8-2&keywords=evicted+poverty+and+profit+in+the+american+city) by Matthew Desmond  
+* [The New Jim Crow](https://www.amazon.com/New-Jim-Crow-Incarceration-Colorblindness/dp/1595586431/ref=sr_1_1?ie=UTF8&qid=1544640261&sr=8-1&keywords=the+new+jim+crow) by Michelle Alexander  
+* [Ghettoside](https://www.amazon.com/Ghettoside-True-Story-Murder-America/dp/0385529996/ref=sr_1_1?ie=UTF8&qid=1544640300&sr=8-1&keywords=ghettoside) by Jill Leovy
+
+
+#### Future Blog Posts
+
+I would love to try to map current census data to the old zoning maps to see how much these communities have changed.
+
+* Demographics  
+* Income  
+* Wealth  
+* Healthcare options and outcomes  
+* Representation - this might actually be the most interesting. If, as I suspect, the demographics haven't changed much, who is representing these communities in government?

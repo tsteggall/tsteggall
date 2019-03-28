@@ -1,0 +1,177 @@
+---
+title: "Stanford Open Policing Project"
+subtitle: "#TidyTuesday 2019 Week 12"
+author: ["admin"]
+date: '2019-03-27'
+slug: open-policing
+categories: ["RStats"]
+tags: ["#TidyTuesday", "geom_dumbbell"]
+image:
+  caption: ''
+  focal_point: ''
+---
+
+
+
+<p>After a brief hiatus that consisted of rebuilding this website and migrating to Netlify I’m back! And hopefully with a bit more time and focus.</p>
+<p>One thing I should note right off the bat - this data is a very interesting real world example of measuring bias, but as the Stanford Open Policing tutorial notes, “data and statistical analysis can be very powerful, but it’s good to know what the limitations are.” This is sensitive data, and while it certainly appears to point to particular conclusions re: police bias, I would highly recommend checking out <a href="https://openpolicing.stanford.edu/tutorials">Stanford Open Policing Project</a> to better understand the many caveats and considerations the Stanford team takes into account when collecting and analyzing this data.</p>
+<div id="setup" class="section level3">
+<h3>Setup</h3>
+<pre class="r"><code>library(tidyverse)
+library(janitor)
+library(lubridate)
+library(ggalt)
+
+theme_set(theme_timmin())
+
+policing_raw &lt;- readr::read_csv(&quot;https://raw.githubusercontent.com/5harad/openpolicing/master/results/data_for_figures/combined_data.csv&quot;)</code></pre>
+<pre class="r"><code>policing_raw$location &lt;- str_to_title(policing_raw$location)
+
+policing_raw &lt;- policing_raw %&gt;%
+  unite(&quot;county&quot;, c(&quot;location&quot;, &quot;state&quot;), sep = &quot;, &quot;)</code></pre>
+</div>
+<div id="plots-and-analysis" class="section level3">
+<h3>Plots and Analysis</h3>
+<p>I knew that I wanted to look for counties with the highest discrepancies between white and POC policing patterns. I decided to use the <code>stop_rate</code> as the metric of choice. <code>stop_rate</code> is actually a proportion of stops per demographic relative to the counties’ demographic population (i.e. White stops / white population).</p>
+<p>It took me a few tries to get the data into the form I needed, but eventually I settled on a <code>geom_dumbbell</code> plot to visualize the counties with the largest difference between White and Black/Hispanic stop rates. I’ve included my rough drafts below for reference - kind of a fun attempt at data manipulation consisting of multiple joins and renaming variables, but ultimately wasn’t the solution needed for <code>geom_dumbbell</code>.</p>
+<div id="tidying" class="section level4">
+<h4>Tidying</h4>
+<pre class="r"><code>black_stop_rate_diff &lt;- policing_raw %&gt;%
+  select(county, driver_race, stop_rate) %&gt;%
+  spread(driver_race, stop_rate) %&gt;%
+  mutate(stop_rate_diff = ifelse(Black &gt;= Hispanic, Black, Hispanic) - White) %&gt;%
+  top_n(25, stop_rate_diff) %&gt;%
+  select(county, Black, White, stop_rate_diff) %&gt;%
+  gather(race, stop_rate, -county, -stop_rate_diff) %&gt;%
+  arrange(desc(stop_rate_diff))
+
+
+hispanic_stop_rate_diff &lt;- policing_raw %&gt;%
+  filter(driver_race != &quot;Black&quot;) %&gt;%
+  select(county, driver_race, stop_rate) %&gt;%
+  spread(driver_race, stop_rate) %&gt;%
+  mutate(stop_rate_diff = Hispanic - White) %&gt;%
+  top_n(25, stop_rate_diff) %&gt;%
+  select(county, Hispanic, White, stop_rate_diff) %&gt;%
+  gather(race, stop_rate, -county, -stop_rate_diff) %&gt;%
+  arrange(desc(stop_rate_diff))</code></pre>
+</div>
+<div id="charts" class="section level4">
+<h4>Charts</h4>
+<pre class="r"><code>black_stop_rate_diff %&gt;%
+  spread(race, stop_rate) %&gt;%
+  ggplot(aes(x = White, xend = Black, y = fct_reorder(county, stop_rate_diff))) +
+  geom_point(inherit.aes = FALSE, data = black_stop_rate_diff, aes(stop_rate, fct_reorder(county, stop_rate_diff),
+                                                                   color = race)) +
+  geom_segment(aes(x=White, 
+                   xend = Black, 
+                   y = fct_reorder(county, stop_rate_diff), 
+                   yend = fct_reorder(county, stop_rate_diff)),
+                   color = &quot;#bcbdbd&quot;,
+                   size = 2) +
+  geom_dumbbell(size_x = 4,
+                size_xend = 4,
+                colour_x = &quot;#4A92B0&quot;,
+                colour_xend = &quot;#4C474C&quot;,
+                color = &quot;#bcbdbd&quot;) +
+  labs(title = &quot;Largest Gaps between Black and White Stop Rates&quot;,
+       x = &quot;Stop Rate (i.e. # of Stops per Person)&quot;,
+       y = &quot;&quot;,
+       color = &quot;Race&quot;,
+       caption = &quot;Data Source: Stanford Open Policing Project&quot;) +
+  geom_text(color = &quot;black&quot;, size = 2.5, hjust = -0.5,
+            aes(x = Black, label = format(round(Black,2), nsmall = 2))) +
+  geom_text(color = &quot;black&quot;, size = 2.5, hjust = 1.5,
+            aes(x = White, label = format(round(White, 2), nsmall=2))) +
+  theme(panel.grid.major.y = element_blank(),
+        panel.grid.major.x = element_blank(),
+        axis.text.x = element_blank()) +
+  scale_color_timmin(palette = &quot;cool&quot;)</code></pre>
+<p><img src="/post/2019-03-22-open-policing_files/figure-html/black%20stop%20rate%20chart-1.png" width="672" /></p>
+<pre class="r"><code>hispanic_stop_rate_diff %&gt;%
+  spread(race, stop_rate) %&gt;%
+  ggplot(aes(x = White, xend = Hispanic, y = fct_reorder(county, stop_rate_diff))) +
+  geom_point(inherit.aes = FALSE, data = hispanic_stop_rate_diff, aes(stop_rate, fct_reorder(county, stop_rate_diff),
+                                                                   color = race)) +
+  geom_segment(aes(x=White, 
+                   xend = Hispanic, 
+                   y = fct_reorder(county, stop_rate_diff), 
+                   yend = fct_reorder(county, stop_rate_diff)),
+                   color = &quot;#bcbdbd&quot;,
+                   size = 2) +
+  geom_dumbbell(size_x = 4,
+                size_xend = 4,
+                colour_x = &quot;#4A92B0&quot;,
+                colour_xend = &quot;#EA3323&quot;,
+                color = &quot;#bcbdbd&quot;) +
+  labs(title = &quot;Largest Gaps between Hispanic and White Stop Rates&quot;,
+       x = &quot;Stop Rate (i.e. # of Stops per Person)&quot;,
+       y = &quot;&quot;,
+       color = &quot;Race&quot;,
+       caption = &quot;Data Source: Stanford Open Policing Project&quot;) +
+  geom_text(color = &quot;black&quot;, size = 2.5, hjust = -0.5,
+            aes(x = Hispanic, label = format(round(Hispanic,2), nsmall = 2))) +
+  geom_text(color = &quot;black&quot;, size = 2.5, hjust = 1.5,
+            aes(x = White, label = format(round(White, 2), nsmall=2))) +
+  theme(panel.grid.major.y = element_blank(),
+        panel.grid.major.x = element_blank(),
+        axis.text.x = element_blank()) +
+  scale_color_timmin(palette = &quot;main&quot;, reverse = TRUE)</code></pre>
+<p><img src="/post/2019-03-22-open-policing_files/figure-html/hispanic%20stop%20rate%20chart-1.png" width="672" /></p>
+</div>
+<div id="takeaways" class="section level4">
+<h4>Takeaways</h4>
+<p>Practicing and polishing the <code>geom_dumbbell</code> chart was fun and productive. It’s not a chart type I’ve worked with a lot, so this was a good opportunity to troubleshoot. The <code>inherit.aes = FALSE</code> segment was a good find that generated a legend <code>geom_dumbbell</code> doesn’t provide out of the box.</p>
+<p>As for the analysis - not sure I would pull too much from these graphs, other than that they do point to some general bias in policing. Also, I think there’s a pretty good chance these charts, and <code>stop_rate</code> in general are biased towards smaller, drive-through counties. These rates seem awfully high, probably pointing to lots of traffic stops, and small populations in the denominators.</p>
+</div>
+</div>
+<div id="rough-drafts" class="section level3">
+<h3>Rough Drafts</h3>
+<div id="data-manipulation" class="section level4">
+<h4>Data Manipulation</h4>
+<p>A whole lot of unnecessary cleaning and manipulating, but I did figure out a few interesting “recipes” I’ll probably get some use out of in the future, including the <code>rename_at(vars(3:10), list(~paste0("black_", .)))</code>, which I was pretty proud of. Also got some good practice at “spreading” a dataset using self-joins. If anyone has recommendations on how this process could have been accomplished using <code>spread</code> or something similar it would be much appreciated.</p>
+<pre class="r"><code>policing_black &lt;- policing_raw %&gt;%
+  filter(driver_race == &quot;Black&quot;) %&gt;%
+  rename_at(vars(3:10), list(~paste0(&quot;black_&quot;, .))) %&gt;%
+  select(-driver_race)
+
+policing_hispanic &lt;- policing_raw %&gt;%
+  filter(driver_race == &quot;Hispanic&quot;) %&gt;%
+  rename_at(vars(3:10), list(~paste0(&quot;hispanic_&quot;, .))) %&gt;%
+  select(-driver_race)
+
+policing_white &lt;- policing_raw %&gt;%
+  filter(driver_race == &quot;White&quot;) %&gt;%
+  rename_at(vars(3:10), list(~paste0(&quot;white_&quot;, .))) %&gt;%
+  select(-driver_race)
+
+policing_wide &lt;- policing_black %&gt;%
+  inner_join(policing_hispanic, by = c(&quot;county&quot; = &quot;county&quot;)) %&gt;%
+  inner_join(policing_white, by = c(&quot;county&quot; = &quot;county&quot;))
+
+policing_diff &lt;- policing_wide %&gt;%
+  mutate(stop_rate_diff = ifelse(black_stop_rate &gt;= hispanic_stop_rate, black_stop_rate, hispanic_stop_rate) - white_stop_rate,
+         search_rate_diff = ifelse(black_search_rate &gt;= hispanic_search_rate, black_search_rate, hispanic_search_rate) - white_search_rate,
+         arrest_rate_diff = ifelse(black_arrest_rate &gt;= hispanic_arrest_rate, black_arrest_rate, hispanic_arrest_rate) - white_arrest_rate) %&gt;%
+  select(county, white_stop_rate, black_stop_rate, hispanic_stop_rate, stop_rate_diff,
+         white_search_rate, black_search_rate, hispanic_search_rate, search_rate_diff,
+         white_arrest_rate, black_arrest_rate, hispanic_arrest_rate, arrest_rate_diff)
+
+top_stop_rate_diff &lt;- policing_diff %&gt;%
+  top_n(25, stop_rate_diff)</code></pre>
+</div>
+<div id="chart" class="section level4">
+<h4>Chart</h4>
+<pre class="r"><code>policing_raw %&gt;%
+  inner_join(top_stop_rate_diff, by = c(&quot;county&quot; = &quot;county&quot;)) %&gt;%
+  ggplot(aes(stop_rate, fct_reorder(county, stop_rate_diff), fill = driver_race)) +
+  geom_point(shape = 21, size = 3, col = &quot;white&quot;) +
+  scale_fill_timmin(palette = &quot;main&quot;, reverse = TRUE)</code></pre>
+<p><img src="/post/2019-03-22-open-policing_files/figure-html/unnamed-chunk-1-1.png" width="672" /></p>
+</div>
+</div>
+<div id="resources" class="section level3">
+<h3>Resources</h3>
+<p><a href="https://openpolicing.stanford.edu/tutorials/">Stanford Open Policing Project:</a> Tutorials page for the data that includes an R tutorial/walkthrough of cleaning the data and the different types of tests the Stanford team worked through when trying to measure police bias. Go for the analysis, stay for the thought process.</p>
+<p><a href="http://www.rpubs.com/ageek/ggplot-adv-part2">geom_dumbbell Walkthrough:</a> Pretty self-explanatory.</p>
+</div>

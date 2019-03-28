@@ -1,0 +1,320 @@
+---
+title: "Stanford Open Policing Project"
+subtitle: "#TidyTuesday 2019 Week 12"
+author: ["admin"]
+date: '2019-03-27'
+slug: open-policing
+categories: ["RStats"]
+tags: ["#TidyTuesday", "geom_dumbbell"]
+image:
+  caption: ''
+  focal_point: ''
+---
+
+After a brief hiatus that consisted of rebuilding this website and migrating to Netlify I'm back! And hopefully with a bit more time and focus. 
+
+One thing I should note right off the bat - this data is a very interesting real world example of measuring bias, but  as the Stanford Open Policing tutorial notes, "data and statistical analysis can be very powerful, but it's good to know what the limitations are."  This is sensitive data, and while it certainly appears to point to particular conclusions re: police bias, I would highly recommend checking out [Stanford Open Policing Project](https://openpolicing.stanford.edu/tutorials) to better understand the many caveats and considerations the Stanford team takes into account when collecting and analyzing this data.
+
+
+```{r theme, echo = FALSE, message=FALSE}
+library(tidyverse)
+library(extrafont)
+
+timmin_colors <- c(
+  #'green' = "#3CC47C",
+  #'green' = "#99B898",
+  #'yellow' = "#F7CE3E",
+  #'yellow' = "#FECEA8",
+  #'yellow' = "#FEDC3D",
+  #'orange' = "#F19F4D",
+  #'orange' = "#FF847C",
+  #'red' = "#E84A5F",
+  #'black' = "#2A363B"
+  'purple' = "#C265F4",
+  'blue' = "#4A92B0",
+  'black' = "#4C474C",
+  'red' = "#EA3323",
+  'yellow' = "#F7D769"
+)
+
+timmin_cols <- function(...) {
+  cols <- c(...)
+  
+  if(is.null(cols))
+    return(timmin_colors)
+  
+  timmin_colors[cols]
+}
+
+timmin_palettes <- list(
+  'main' = timmin_cols("blue", "black", "red"),
+  'cool' = timmin_cols("black", "blue"),
+  'hot' = timmin_cols("black", "red"),
+  'sharp' = timmin_cols("purple", "black", "yellow"),
+  'mixed' = timmin_cols("blue", "purple", "red", "yellow")
+)
+
+timmin_pal <- function(palette = "main", reverse = FALSE, ...) {
+  pal <- timmin_palettes[[palette]]
+  
+  if (reverse) pal <- rev(pal)
+  
+  colorRampPalette(pal, ...)
+}
+
+# Scales for ggplot2
+
+scale_color_timmin <- function(palette = "main", discrete = TRUE, reverse = FALSE, ...){
+  pal <- timmin_pal(palette = palette, reverse = reverse)
+  
+  if (discrete) {
+    discrete_scale("color", paste0("timmin_", palette), palette = pal, ...)
+  } else {
+    scale_color_gradientn(colors = pal(256), ...)
+  }
+}
+
+scale_fill_timmin <- function(palette = "main", discrete = TRUE, reverse = FALSE, ...){
+  pal <- timmin_pal(palette = palette, reverse = reverse)
+  
+  if (discrete) {
+    discrete_scale("fill", paste0("timmin_", palette), palette = pal, ...)
+  } else {
+    scale_fill_gradientn(colors = pal(256), ...)
+  }
+}
+
+
+
+theme_timmin <- function(base_size = 11, font = "Raleway") {
+
+  # Text Setting
+  txt <- element_text(size = base_size, color = "black", face = "plain")
+  bold_txt <- element_text(size = base_size, color = "black", face = "bold")
+  large_txt <- element_text(size = base_size + 3, color = "black", face = "bold")
+  
+  theme_minimal(base_size = base_size, base_family = font) +
+    theme(
+      # Legend Settings
+      legend.key = element_blank(),
+      legend.background = element_blank(),
+      legend.position = "bottom",
+      legend.direction = "horizontal",
+      legend.box = "vertical",
+      
+      # Shapes
+      line = element_line(
+        color = "black", size = rel(0.5),
+        linetype = "solid", lineend = "round"),
+      rect = element_rect(
+        fill = "#F0F0F0",
+        linetype = 0, color = NA),
+      
+      #Backgrounds
+      strip.background = element_rect(),
+      plot.background = element_rect(fill = "white"),
+      plot.margin = unit(c(1,1,1,1), "lines"),
+      
+      #Axis & Titles
+      text = txt,
+      axis.text = element_text(size = rel(0.75)),#txt,
+      axis.ticks = element_blank(),
+      axis.line = element_blank(),
+      axis.title = bold_txt,
+      plot.title = large_txt,
+      
+      #Panel: these are the axis lines/measurement lines WITHIN the graph 
+      panel.grid = element_line(color = NULL),
+      #panel.grid.major = element_line(color = "#D2D2D2"),
+      panel.grid.major = element_line(
+        rgb(105, 105, 105, maxColorValue = 255),
+        linetype = "dotted",
+        size = rel(0.5)),
+      panel.grid.minor = element_blank()
+      
+      )
+}
+```
+
+
+### Setup
+
+```{r setup, echo=TRUE, results='hide', warning=FALSE, message=FALSE}
+library(tidyverse)
+library(janitor)
+library(lubridate)
+library(ggalt)
+
+theme_set(theme_timmin())
+
+policing_raw <- readr::read_csv("https://raw.githubusercontent.com/5harad/openpolicing/master/results/data_for_figures/combined_data.csv")
+```
+
+```{r cleaning, echo=TRUE, results='hide', warning=FALSE, message=FALSE }
+policing_raw$location <- str_to_title(policing_raw$location)
+
+policing_raw <- policing_raw %>%
+  unite("county", c("location", "state"), sep = ", ")
+```
+
+### Plots and Analysis
+
+I knew that I wanted to look for counties with the highest discrepancies between white and POC policing patterns. I decided to use the ```stop_rate``` as the metric of choice. ```stop_rate``` is actually a proportion of stops per demographic relative to the counties' demographic population (i.e. White stops / white population).
+
+It took me a few tries to get the data into the form I needed, but eventually I settled on a ```geom_dumbbell``` plot to visualize the counties with the largest difference between White and Black/Hispanic stop rates. I've included my rough drafts below for reference - kind of a fun attempt at data manipulation consisting of multiple joins and renaming variables, but ultimately wasn't the solution needed for ```geom_dumbbell```.
+
+#### Tidying
+
+```{r tidy, echo=TRUE, results='hide', warning=FALSE, message=FALSE }
+
+black_stop_rate_diff <- policing_raw %>%
+  select(county, driver_race, stop_rate) %>%
+  spread(driver_race, stop_rate) %>%
+  mutate(stop_rate_diff = ifelse(Black >= Hispanic, Black, Hispanic) - White) %>%
+  top_n(25, stop_rate_diff) %>%
+  select(county, Black, White, stop_rate_diff) %>%
+  gather(race, stop_rate, -county, -stop_rate_diff) %>%
+  arrange(desc(stop_rate_diff))
+
+
+hispanic_stop_rate_diff <- policing_raw %>%
+  filter(driver_race != "Black") %>%
+  select(county, driver_race, stop_rate) %>%
+  spread(driver_race, stop_rate) %>%
+  mutate(stop_rate_diff = Hispanic - White) %>%
+  top_n(25, stop_rate_diff) %>%
+  select(county, Hispanic, White, stop_rate_diff) %>%
+  gather(race, stop_rate, -county, -stop_rate_diff) %>%
+  arrange(desc(stop_rate_diff))
+```
+
+
+#### Charts
+
+```{r black stop rate chart}
+black_stop_rate_diff %>%
+  spread(race, stop_rate) %>%
+  ggplot(aes(x = White, xend = Black, y = fct_reorder(county, stop_rate_diff))) +
+  geom_point(inherit.aes = FALSE, data = black_stop_rate_diff, aes(stop_rate, fct_reorder(county, stop_rate_diff),
+                                                                   color = race)) +
+  geom_segment(aes(x=White, 
+                   xend = Black, 
+                   y = fct_reorder(county, stop_rate_diff), 
+                   yend = fct_reorder(county, stop_rate_diff)),
+                   color = "#bcbdbd",
+                   size = 2) +
+  geom_dumbbell(size_x = 4,
+                size_xend = 4,
+                colour_x = "#4A92B0",
+                colour_xend = "#4C474C",
+                color = "#bcbdbd") +
+  labs(title = "Largest Gaps between Black and White Stop Rates",
+       x = "Stop Rate (i.e. # of Stops per Person)",
+       y = "",
+       color = "Race",
+       caption = "Data Source: Stanford Open Policing Project") +
+  geom_text(color = "black", size = 2.5, hjust = -0.5,
+            aes(x = Black, label = format(round(Black,2), nsmall = 2))) +
+  geom_text(color = "black", size = 2.5, hjust = 1.5,
+            aes(x = White, label = format(round(White, 2), nsmall=2))) +
+  theme(panel.grid.major.y = element_blank(),
+        panel.grid.major.x = element_blank(),
+        axis.text.x = element_blank()) +
+  scale_color_timmin(palette = "cool")
+
+```
+
+
+
+```{r hispanic stop rate chart}
+hispanic_stop_rate_diff %>%
+  spread(race, stop_rate) %>%
+  ggplot(aes(x = White, xend = Hispanic, y = fct_reorder(county, stop_rate_diff))) +
+  geom_point(inherit.aes = FALSE, data = hispanic_stop_rate_diff, aes(stop_rate, fct_reorder(county, stop_rate_diff),
+                                                                   color = race)) +
+  geom_segment(aes(x=White, 
+                   xend = Hispanic, 
+                   y = fct_reorder(county, stop_rate_diff), 
+                   yend = fct_reorder(county, stop_rate_diff)),
+                   color = "#bcbdbd",
+                   size = 2) +
+  geom_dumbbell(size_x = 4,
+                size_xend = 4,
+                colour_x = "#4A92B0",
+                colour_xend = "#EA3323",
+                color = "#bcbdbd") +
+  labs(title = "Largest Gaps between Hispanic and White Stop Rates",
+       x = "Stop Rate (i.e. # of Stops per Person)",
+       y = "",
+       color = "Race",
+       caption = "Data Source: Stanford Open Policing Project") +
+  geom_text(color = "black", size = 2.5, hjust = -0.5,
+            aes(x = Hispanic, label = format(round(Hispanic,2), nsmall = 2))) +
+  geom_text(color = "black", size = 2.5, hjust = 1.5,
+            aes(x = White, label = format(round(White, 2), nsmall=2))) +
+  theme(panel.grid.major.y = element_blank(),
+        panel.grid.major.x = element_blank(),
+        axis.text.x = element_blank()) +
+  scale_color_timmin(palette = "main", reverse = TRUE)
+
+```
+
+#### Takeaways
+
+Practicing and polishing the ```geom_dumbbell``` chart was fun and productive. It's not a chart type I've worked with a lot, so this was a good opportunity to troubleshoot. The ```inherit.aes = FALSE``` segment was a good find that generated a legend ```geom_dumbbell``` doesn't provide out of the box. 
+
+As for the analysis - not sure I would pull too much from these graphs, other than that they do point to some general bias in policing. Also, I think there's a pretty good chance these charts, and ```stop_rate``` in general are  biased towards smaller, drive-through counties. These rates seem awfully high, probably pointing to lots of traffic stops, and small populations in the denominators. 
+
+### Rough Drafts
+
+#### Data Manipulation
+
+A whole lot of unnecessary cleaning and manipulating, but I did figure out a few interesting "recipes" I'll probably get some use out of in the future, including the ```rename_at(vars(3:10), list(~paste0("black_", .)))```, which I was pretty proud of. Also got some good practice at "spreading" a dataset using self-joins. If anyone has recommendations on how this process could have been accomplished using ```spread``` or something similar it would be much appreciated. 
+
+```{r diff data}
+policing_black <- policing_raw %>%
+  filter(driver_race == "Black") %>%
+  rename_at(vars(3:10), list(~paste0("black_", .))) %>%
+  select(-driver_race)
+
+policing_hispanic <- policing_raw %>%
+  filter(driver_race == "Hispanic") %>%
+  rename_at(vars(3:10), list(~paste0("hispanic_", .))) %>%
+  select(-driver_race)
+
+policing_white <- policing_raw %>%
+  filter(driver_race == "White") %>%
+  rename_at(vars(3:10), list(~paste0("white_", .))) %>%
+  select(-driver_race)
+
+policing_wide <- policing_black %>%
+  inner_join(policing_hispanic, by = c("county" = "county")) %>%
+  inner_join(policing_white, by = c("county" = "county"))
+
+policing_diff <- policing_wide %>%
+  mutate(stop_rate_diff = ifelse(black_stop_rate >= hispanic_stop_rate, black_stop_rate, hispanic_stop_rate) - white_stop_rate,
+         search_rate_diff = ifelse(black_search_rate >= hispanic_search_rate, black_search_rate, hispanic_search_rate) - white_search_rate,
+         arrest_rate_diff = ifelse(black_arrest_rate >= hispanic_arrest_rate, black_arrest_rate, hispanic_arrest_rate) - white_arrest_rate) %>%
+  select(county, white_stop_rate, black_stop_rate, hispanic_stop_rate, stop_rate_diff,
+         white_search_rate, black_search_rate, hispanic_search_rate, search_rate_diff,
+         white_arrest_rate, black_arrest_rate, hispanic_arrest_rate, arrest_rate_diff)
+
+top_stop_rate_diff <- policing_diff %>%
+  top_n(25, stop_rate_diff)
+```
+
+#### Chart
+
+```{r}
+policing_raw %>%
+  inner_join(top_stop_rate_diff, by = c("county" = "county")) %>%
+  ggplot(aes(stop_rate, fct_reorder(county, stop_rate_diff), fill = driver_race)) +
+  geom_point(shape = 21, size = 3, col = "white") +
+  scale_fill_timmin(palette = "main", reverse = TRUE)
+```
+
+### Resources
+
+[Stanford Open Policing Project:](https://openpolicing.stanford.edu/tutorials/) Tutorials page for the data that includes an R tutorial/walkthrough of cleaning the data and the different types of tests the Stanford team worked through when trying to measure police bias. Go for the analysis, stay for the thought process.
+
+[geom_dumbbell Walkthrough:](http://www.rpubs.com/ageek/ggplot-adv-part2) Pretty self-explanatory.

@@ -1,0 +1,199 @@
+---
+title: "Vera CA Incarceration Data"
+subtitle: "#TidyTuesday 2019 Week 4"
+authors: ["admin"]
+date: '2019-02-01'
+slug: ca-incarceration
+categories: ["RStats"]
+tags: ["#TidyTuesday"]
+---
+
+I'm a little late to this one, but I didn't want to miss the chance to check out this incarceration data from the Vera Institute, particularly as it pertains to California.
+
+I decided to follow two threads:  
+
+1. Use Leaflet to visualize the incarceration rates in CA by county
+2. Explore how the `total_jail_pretrial` numbers have changed over time
+
+
+### Setup
+
+```{r setup, echo=TRUE, results='hide', warning=FALSE, message=FALSE}
+library(tidyverse)
+library(lubridate)
+library(leaflet)
+library(viridis)
+
+theme_set(theme_light())
+```
+
+```{r data, echo=TRUE, results='hide', warning=FALSE, message=FALSE}
+
+incarceration_raw <- read_csv("https://raw.githubusercontent.com/vera-institute/incarceration_trends/master/incarceration_trends.csv")
+
+incarceration_raw <- incarceration_raw %>%
+  mutate(row_number = row_number()) %>%
+  dplyr::select(row_number, yfips:arson_crime)
+
+```
+
+Below is the code to pull the California records and variables of interest. I'm only using data from 1984 - 2015 because the records outside of that timespan are littered with missing data. There are 32 records (of 1,856) missing `total_prison_pop` from this timeframe.
+
+I also added one new column, `total_incarc` which is the sum of `total_jail_pop` and `total_prison_pop` to get one number that includes every incarcerated individual in the state of CA. From what I could gather from the Vera codebook, I believe `total_jail_pretrial` is included in `total_jail_pop`, so I excluded that from the `total_incarc` calculation.
+
+```{r ca data, echo=TRUE, warning=FALSE, message=FALSE}
+california <- incarceration_raw %>%
+  filter(state == "CA" & year < 2016 & year > 1983) %>%
+  dplyr::select(row_number:county_name, urbanicity:division, total_pop, 
+                total_pop_15to64, total_jail_pop, total_prison_pop, 
+                total_jail_pretrial) %>%
+  mutate(total_incarc = total_jail_pop + total_prison_pop,
+         incarc_rate = round(total_incarc/total_pop_15to64,4)) %>%
+  filter(!is.na(total_prison_pop))
+
+```
+
+### Visualizing CA County Incarceration Rates in 2015 using Leaflet
+
+```{r ca 2015 cleaning, echo=TRUE, warning=FALSE, message=FALSE}
+california_2015 <- california %>%
+  filter(year == 2015) %>%
+  mutate(state = case_when(str_detect(state, "CA") ~ "California"),
+          county_name = str_remove(county_name, " County"))
+
+##incarc_per_100000 = (total_prison_pop/total_pop_15to64) * 100000) -> use this calculation to replicate Vera's official charts on their website
+
+```
+
+One thing to note - I used the `raster` package to get the county shapefiles. Unfortunately, `raster` masks the `select` command, which is why I'm using `dplyr::select` throughout this script.
+
+```{r shapefile prep, echo=TRUE, warning=FALSE, message=FALSE}
+library(raster)
+USA <- getData("GADM", country = "usa", level = 2)
+
+temp <- merge(USA, california_2015,
+              by.x = c("NAME_1","NAME_2"), by.y = c("state","county_name"),
+              all.x = TRUE)
+
+CA <- temp[temp@data$NAME_1 == "California",]
+
+pal <- colorNumeric(palette = "viridis", domain = CA@data$incarc_rate, na.color = "grey")
+
+```
+
+```{r ca map, echo=TRUE, warning=FALSE, message=FALSE }
+leaflet() %>%
+  addProviderTiles(provider = "CartoDB.Positron") %>%
+  addPolygons(data = CA, 
+              stroke = FALSE,
+              smoothFactor = 0.5,
+              fillOpacity = 0.5,
+              fillColor = ~pal(CA@data$incarc_rate),
+              popup = paste("<strong>County: </strong>", CA@data$NAME_2, "<br>",
+                            "<strong>Total Incarcerated: </strong>", 
+                            CA@data$incarc_rate*100, "percent")) %>%
+  addLegend(position = "bottomright", pal = pal, values = CA@data$incarc_rate,
+            title = "Total Incarceration Rate 2015",
+            opacity = 1)
+```
+\   
+2 Notes:
+
+1. I used a different calculation for incarceration rate than Vera uses on their website. I combined prison and jail populations to get a total incarceration rate, and I kept it as a percentage/decimal. Vera uses `total_prison_pop/total_pop_15to64 * 100000` to calculate incarceration rate per 100,000 residents. I included this calculation in the chunk above for reference.
+2. I've browsed the Vera codebook, but I'm kind of confused by some of these numbers. For example: Marin county is listed as having a `total_prison_pop` of 252, but I know that's where San Quentin is located, which houses over 3,000 prisoners...
+
+```{r}
+california_2015 %>%
+  filter(county_name == "Marin") %>%
+  dplyr::select(state, county_name, total_jail_pop, total_prison_pop)
+```
+
+### Examining the Pretrial Population from 1984 to 2015 
+
+On the campaign, a talking point that often came up was the amount of money the state was spending on jailing individuals that had not yet been convicted of a crime. My thought was to look at `total_jail_pretrial` as a percent of what I've been calling the `total_incarceration_rate` to see if this has changed over time.
+
+```{r perc_pretrial graph, echo = TRUE, warning=FALSE, message=FALSE}
+california %>%
+  group_by(year, urbanicity) %>%
+  summarize(perc_pretrial = sum(total_jail_pretrial)/sum(total_incarc)) %>%
+  ggplot(aes(year, perc_pretrial, color = urbanicity)) +
+  geom_line(size = .5) +
+  scale_y_continuous(labels = scales::percent_format(accuracy = 1)) +
+  #expand_limits(y = c(0, 1)) +
+  labs(x = "Year", y = "Percent Pretrial") +
+  theme_light()
+
+```
+
+Interesting - the pretrial percentage has stayed somewhat stable (hovered around 20%) for urban areas, but has increased in suburban, small/mid, and rural areas. In suburban areas, the pretrial percentage saw a sharp increase in the year 2000, and stayed around 25% until 2015. What changed in 2000?
+
+Unfortunately, the raw dataset doesn't have much information on the demographics of the pretrial population. We could potentially look at the demographics of the total jail population, but it would be impossible to differentiate which segments of that population were pretrial. 
+
+However, the dataset does include information on the types of crimes committed. According to uslegal.com, [**Index crimes**](https://definitions.uslegal.com/i/index-crimes/) are the eight crimes the FBI combines to produce its annual crime index. Part I crimes are serious felonies and offenses, whereas Part II offenses are non-serious felonies and misdemeanors. The Vera data includes the index crime rate, but then also breaks it out into the separate, individual crime rates. Vera notes in their codebook that the `index_crime` is a *Count of Part I Index Crimes.* 
+
+Based on this information, I think we'd expect the `index_crime` rate to stay relatively stable in suburban, small/mid, and rural areas, with the guess that it is Part II crimes(which are not included in the data set) that are being more heavily policed in suburban areas.
+
+```{r ca crime data, echo = TRUE, message= FALSE, warning=FALSE}
+
+### Because the dataset is completely missing CA crime information from 2015 and 2016, I cut off the data at 2014. Data from the year 1993 is also missing.
+
+california_crime <- incarceration_raw %>%
+  filter(state == "CA" & year < 2015 & year > 1983) %>%
+  dplyr::select(row_number:county_name, urbanicity, index_crime:arson_crime)
+
+california_crime_tidy <- california_crime %>%
+  gather(crime_type, crime_amount, index_crime:arson_crime) %>%
+  mutate(crime_type = case_when(str_detect(crime_type, "index") ~ "Index",
+                                str_detect(crime_type, "violent") ~ "Violent",
+                                str_detect(crime_type, "property") ~ "Property",
+                                str_detect(crime_type, "murder") ~ "Murder",
+                                str_detect(crime_type, "rape") ~ "Rape",
+                                str_detect(crime_type, "robbery") ~ "Robbery",
+                                str_detect(crime_type, "agr") ~ "Aggravated Assault",
+                                str_detect(crime_type, "burglary") ~ "Burglary",
+                                str_detect(crime_type, "larceny") ~ "Larceny",
+                                str_detect(crime_type, "mv") ~ "Motor Vehicle Theft",
+                                str_detect(crime_type, "arson") ~ "Arson"
+  ))
+
+```
+
+I created two charts to dig into my hypothesis:
+
+1. The raw number of Part I index crimes committed in suburban areas. As I mentioned above, I would expect this to stay relatively stable, even as the pretrial jail population grew around the year 2000. I think if we had the Part II crime data, that is where we would see an increase in suburban areas.
+2. The percentage of Part I index crimes committed in suburban areas, relative to the other region types in the state.
+
+```{r}
+california_crime_tidy %>%
+  filter(crime_type == "Index") %>%
+  group_by(year, urbanicity) %>%
+  summarize(total_crime = sum(crime_amount)) %>%
+  filter(urbanicity == "suburban") %>%
+  ggplot(aes(year, total_crime)) +
+  geom_col() +
+  labs(title = "Raw Number of Suburban Index Crimes per Year, 1984 - 2014", x = "Year",
+       y = "# of Crimes") +
+  theme_light()
+```
+Part I crimes actually decreased in suburban areas in the year 2000! Furthermore, it's not that Part I crimes in suburban areas were increasing as a percentage of all crimes committed in CA.
+
+```{r suburb perc, echo = FALSE, warning = FALSE, message = FALSE}
+california_crime_tidy %>%
+  filter(crime_type == "Index") %>%
+  group_by(year, urbanicity) %>%
+  summarize(total_crime = sum(crime_amount)) %>%
+  mutate(crime_perc = total_crime/sum(total_crime)) %>%
+  ggplot(aes(year, crime_perc, color = urbanicity)) +
+  geom_line() +
+  labs(x = "Year", y = "Crime Percentage")
+```
+
+I think it's safe to say that Part I crimes do not appear to be the main driver in the increase in the suburban pretrial propulation.
+
+### Resources
+
+[Vera](http://trends.vera.org/incarceration-rates?data=prison&fips=6041&fromProfile=true): The official Vera website with interactive maps and further reading.
+
+[PPIC: Pretrial Detention and Jail Capacity in California](https://www.ppic.org/publication/pretrial-detention-and-jail-capacity-in-california/): Interesting article which provides more information and context on the pretrial detention population in California's jails.
+
+[Leaflet for R](https://rstudio.github.io/leaflet/): R Studio's Leaflet reference manual.

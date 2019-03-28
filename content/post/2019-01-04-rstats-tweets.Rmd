@@ -1,0 +1,115 @@
+---
+title: "#Rstats Tweets"
+subtitle: "#TidyTuesday 2019 Week 1"
+authors: ["admin"]
+date: '2019-01-04'
+slug: rstats-tweets
+categories: ["RStats"]
+tags: ["#TidyTuesday"]
+---
+
+Happy New Year! This first TidyTuesday dataset of 2019 was a great way to get the year started. I've been working on a separate side project that will include analyzing social media trends, so I thought this would be a good opportunity to test out at least one rough idea I've been kicking around.
+
+I wanted to plot the most popular topics (as measured by word/token frequency) chronologically, to see if any particular keywords were unique to certain timeframes, and/or their frequency of use stood out. As I worked through this I had even more ideas about how to improve this in the future (anomaly detection?), but the primary goal was to find a rough method to detect certain events or issues that popped up over the course of 2018 #rstats tweets.
+
+### Setup
+```{r setup, echo=TRUE, results='hide', warning=FALSE, message=FALSE}
+library(tidyverse)
+library(lubridate)
+library(tidytext)
+
+theme_set(theme_light())
+
+```
+
+### Data
+```{r data import, echo=TRUE, results='hide', warning=FALSE, message=FALSE}
+
+# I saw this method of importing the data in a couple other users TidyTuesday posts, but for some reason this didn't work for me, so I manually downloaded the data.
+
+##download.file("https://github.com/rfordatascience/tidytuesday/raw/master/data/2019/2019-01-01/rstats_tweets.rds", "rstats_tweets.rds")
+
+##tweets_raw <- read_rds("rstats_tweets.rds")
+
+tweets_raw <- read_rds("~/Data/TidyTuesday/rstats_tweets.rds")
+
+```
+
+Based on my idea above, the actual number of columns I'll need is much less than the 88 provided. I'm also only going to include tweets from 2018.
+
+```{r data cleaning, echo=TRUE, warning=FALSE, message=FALSE}
+
+tweets_simple <- tweets_raw %>%
+  dplyr::select(created_at, screen_name, text) %>%
+  filter(year(created_at) == 2018) %>%
+  mutate(week = week(created_at)) %>%
+  arrange(created_at)
+
+head(tweets_simple, n = 10)
+```
+
+For cleaning the text of the tweets, I leaned heavily on [Julia Silge's TidyText](https://www.tidytextmining.com/twitter.html). This is an amazing resource and one I imagine I'll continue to reference going forward.
+
+After some trial and error, I decided to remove certain words because they overwhelmed my plot (I realized after the fact that there are probably better ways around this issue than just removing them, but I'll save that for next time). Removing "#rstats" made sense initially, but then I decided to remove the rest of the words in the final filter argument below. This was not at all scientific, and is any area to improve going forward.
+
+```{r unnest tokens, echo=TRUE, warning=FALSE, message=FALSE}
+
+remove_reg <- "&amp;|&lt;|&gt;"
+
+tidy_tweets <- tweets_simple %>% 
+  filter(!str_detect(text, "^RT")) %>%
+  mutate(text = str_remove_all(text, remove_reg)) %>%
+  unnest_tokens(word, text, token = "tweets") %>%
+  filter(!word %in% stop_words$word,
+         !word %in% str_remove_all(stop_words$word, "'"),
+         str_detect(word, "[a-z]"),
+         !word %in% c("#rstats", "#datascience", "data", "#tidyverse", "package", 
+                      "cran","#bigdata", "#python", "#machinelearning", "#dataviz",
+                      "#analytics", "code"))
+
+head(tidy_tweets, n = 10)
+
+```
+
+I decided to only to plot the top 3 topics of conversation per week from 2018, and only label *unique* topics to help keep the plot a bit cleaner.
+
+```{r weekly topics, echo=TRUE, warning=FALSE, message=FALSE}
+
+weekly_topics <- tidy_tweets %>%
+  dplyr::select(week, word) %>%
+  count(week, word) %>%
+  group_by(week) %>%
+  top_n(n = 3, wt = n) %>%
+  mutate(rank = order(order(n, decreasing=TRUE)))
+  
+weekly_topics$unique <- duplicated(weekly_topics$word) | duplicated(weekly_topics$word, fromLast = TRUE)
+
+
+top_n(weekly_topics, 10)
+```
+
+### Plot
+
+```{r topics plot, echo=TRUE, warning=FALSE, message=FALSE}
+weekly_topics %>%
+  ggplot(aes(week, n)) +
+  geom_jitter() +
+  geom_text(aes(label=ifelse(unique == FALSE, as.character(word),''), 
+                hjust=-0.2, vjust=0.1), color="red", size = 3.5, 
+            check_overlap = FALSE) +
+  labs(x = "Week", y = "Frequency of Word", title = "2018 Most Tweeted Topics in 
+       #rstats Tweets")
+  
+```
+
+This isn't the prettiest graph in the world, but it accomplishes what I set out to do by highlighting a few time-specific events, like the #rstudioconf and the useR! 2018 conference. This was a solid introduction to working with Twitter data, and gave me plenty of ideas on how to improve my analysis going forward. Success!
+
+### Resources
+I wanted to highlight and link to a couple of the resources I used while working on this. These helped generate some ideas and get through a couple of the trickier spots.
+
+[Julia Silge and David Robinson's Text Mining with R](https://www.tidytextmining.com/twitter.html) - an amazing and FREE resource that walks through a tidy approach to text mining in R. Unbelievably helpful with 3 case study examples, including one that analyzes Twitter archives. Could not have done this analysis without this as a guide.
+
+[Stack Overflow - Test if a value is unique in a vector in R](https://stackoverflow.com/questions/32150213/test-if-a-value-is-unique-in-a-vector-in-r) - when I realized I wanted to highlight only unique labels, I need this to figure out how to identify the unique values in weekly_topics$word. 
+
+
+

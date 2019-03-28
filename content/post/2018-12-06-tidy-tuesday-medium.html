@@ -1,0 +1,78 @@
+---
+title: "Medium Blog Posts"
+subtitle: "#TidyTuesday 2018 Week 36"
+authors: ["admin"]
+date: '2018-12-06'
+slug: tidy-tuesday-medium
+categories: ["RStats"]
+tags: ["#TidyTuesday"]
+---
+
+
+
+<p>So my first attempt at a #TidyTuesday - it’s not quite as easy as <a href="https://www.youtube.com/watch?v=C69QyycHsgE">DRob makes it look!</a> The data on Medium blog posts was interesting and in good shape, but for my first #TidyTuesday post I had a bit of a brain cramp generating ideas. I’ve been listening to a podcast lately that talks about the importance of a consistent posting schedule for bloggers, so I tried to dig into the relationship between an author’s posting schedule and the number of claps they receive. Unfortunately I didn’t find much; I might dig a little deeper with the full Kaggle dataset in the future and not just the AI related tags.</p>
+<p>After spending a little too much time looking into that relationship, I decided to keep things simple for my first post and threw together some straightforward visualizations looking at the distribution of blog posts across days of the week, the most prolific authors, and the posting routines of the individual prolific authors.</p>
+<div id="data" class="section level3">
+<h3>Data</h3>
+<pre class="r"><code>library(tidyverse)
+library(lubridate)
+
+
+medium &lt;- read_csv(&quot;https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2018/2018-12-04/medium_datasci.csv&quot;)
+
+theme_set(theme_light())</code></pre>
+</div>
+<div id="on-what-days-of-the-week-are-articles-typically-posted" class="section level3">
+<h3>On what days of the week are articles typically posted?</h3>
+<pre class="r"><code>library(lubridate)
+
+medium %&gt;%
+  unite(date, year, month, day, sep = &quot;-&quot;) %&gt;%
+  mutate(day = wday(date, label = TRUE)) %&gt;%
+  count(day, sort=TRUE) %&gt;%
+  ggplot(aes(x=day, y=n, fill = day)) +
+  geom_col() +
+  labs(title = &quot;Posts per Day of the Week&quot;, y = &quot;# of Posts&quot;) +
+  geom_text(aes(label = n, vjust = -0.3)) +
+  theme(legend.position = &quot;none&quot;,
+        axis.title.x = element_blank())</code></pre>
+<p><img src="/post/2018-12-06-tidy-tuesday-medium_files/figure-html/unnamed-chunk-2-1.png" width="672" /></p>
+<p>Makes sense that writers wouldn’t post on weekends - readership is probably less consistent on weekends, and wouldn’t want potentially popular posts to get overlooked.</p>
+</div>
+<div id="who-are-the-most-prolific-authors" class="section level3">
+<h3>Who are the most prolific authors?</h3>
+<pre class="r"><code>medium %&gt;%
+  count(author, sort = TRUE) %&gt;%
+  drop_na() %&gt;%
+  top_n(n=10) %&gt;%
+  ggplot(aes(x=fct_reorder(author,n), y=n)) +
+  geom_point() +
+  labs(title = &quot;Most prolific authors&quot;, y = &quot;Number of Articles&quot;, x = &quot;Author&quot;) +
+  coord_flip()</code></pre>
+<p><img src="/post/2018-12-06-tidy-tuesday-medium_files/figure-html/unnamed-chunk-3-1.png" width="672" /></p>
+</div>
+<div id="what-is-the-posting-schedule-of-the-most-prolific-authors-top-10-authors" class="section level3">
+<h3>What is the posting schedule of the most prolific authors (Top 10 authors)</h3>
+<pre class="r"><code>prolific &lt;- medium %&gt;%
+  count(author, sort = TRUE) %&gt;%
+  drop_na() %&gt;%
+  top_n(n=10)
+
+author_by_day &lt;- medium %&gt;%
+  unite(date,year, month, day, sep=&quot;-&quot;) %&gt;%
+  mutate(day = wday(date, label = TRUE)) %&gt;%
+  filter(!is.na(author))
+
+author_by_day %&gt;%
+  group_by(author,day) %&gt;%
+  summarize(posts = n()) %&gt;%
+  filter(author %in% prolific$author) %&gt;%
+  ggplot(aes(x=factor(day), y=posts, color = author, group = author)) +
+  geom_line(size = 1) +
+  labs(title = &quot;What is the posting schedule for the top authors?&quot;,
+       y = &quot;# of Posts&quot;) +
+  theme(axis.title.x = element_blank())</code></pre>
+<p><img src="/post/2018-12-06-tidy-tuesday-medium_files/figure-html/unnamed-chunk-4-1.png" width="672" /></p>
+<p>I guess if you want to be the most prolific writer, it makes sense that you would have a stable publishing schedule, which Yves Mulkers does. Yves also publishes more often on weekends, in contrast to nearly every other author. Synced and Alibaba Cloud appear to take weekends off, while Corsair’s Publishing doesn’t post on Sundays. Yves is just on a different level from everyone else.</p>
+<p>Relatively straightforward first #TidyTuesday but thanks for making it all the way to the bottom! Let me know if you have any questions or ways to improve.</p>
+</div>
