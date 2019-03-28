@@ -5,7 +5,7 @@ authors: ["admin"]
 date: '2018-12-17'
 slug: tidytuesday-nycrestaurants
 categories: ["RStats"]
-tags: ["#TidyTuesday"]
+tags: ["TidyTuesday"]
 ---
 
 Week 2! Again, I found the most difficult part of this process to be diving into a random set of data and trying to pull out something interesting.  Toss me some baseball or political data, and I have an idea of the questions I want to ask, but data on NYC restaurant inspections is a little trickier.

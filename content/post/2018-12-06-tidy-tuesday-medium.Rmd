@@ -5,7 +5,7 @@ authors: ["admin"]
 date: '2018-12-06'
 slug: tidy-tuesday-medium
 categories: ["RStats"]
-tags: ["#TidyTuesday"]
+tags: ["TidyTuesday"]
 ---
 
 So my first attempt at a \#TidyTuesday - it's not quite as easy as [DRob makes it look!](https://www.youtube.com/watch?v=C69QyycHsgE) The data on Medium blog posts was interesting and in good shape, but for my first \#TidyTuesday post I had a bit of a brain cramp generating ideas. I've been listening to a podcast lately that talks about the importance of a consistent posting schedule for bloggers, so I tried to dig into the relationship between an author's posting schedule and the number of claps they receive. Unfortunately I didn't find much; I might dig a little deeper with the full Kaggle dataset in the future and not just the AI related tags. 

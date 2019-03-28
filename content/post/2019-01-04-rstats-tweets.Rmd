@@ -5,7 +5,7 @@ authors: ["admin"]
 date: '2019-01-04'
 slug: rstats-tweets
 categories: ["RStats"]
-tags: ["#TidyTuesday"]
+tags: ["TidyTuesday"]
 ---
 
 Happy New Year! This first TidyTuesday dataset of 2019 was a great way to get the year started. I've been working on a separate side project that will include analyzing social media trends, so I thought this would be a good opportunity to test out at least one rough idea I've been kicking around.

@@ -5,7 +5,7 @@ authors: ["admin"]
 date: '2019-02-01'
 slug: ca-incarceration
 categories: ["RStats"]
-tags: ["#TidyTuesday"]
+tags: ["TidyTuesday"]
 ---
 
 I'm a little late to this one, but I didn't want to miss the chance to check out this incarceration data from the Vera Institute, particularly as it pertains to California.

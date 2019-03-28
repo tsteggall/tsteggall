@@ -5,7 +5,7 @@ authors: ["admin"]
 date: '2018-12-17'
 slug: tidytuesday-nycrestaurants
 categories: ["RStats"]
-tags: ["#TidyTuesday"]
+tags: ["TidyTuesday"]
 ---
 
 
@@ -47,16 +47,16 @@ theme_set(theme_light())</code></pre>
 <pre><code>## # A tibble: 34 x 4
 ##       camis dba       inspection_date violation_code
 ##       &lt;dbl&gt; &lt;chr&gt;     &lt;date&gt;          &lt;chr&gt;         
-##  1 41006043 12 CHAIRS 2016-06-21      04J           
-##  2 41006043 12 CHAIRS 2016-06-21      05F           
-##  3 41006043 12 CHAIRS 2016-06-21      02H           
-##  4 41006043 12 CHAIRS 2016-06-21      02G           
+##  1 41006043 12 CHAIRS 2016-06-21      02H           
+##  2 41006043 12 CHAIRS 2016-06-21      02G           
+##  3 41006043 12 CHAIRS 2016-06-21      04J           
+##  4 41006043 12 CHAIRS 2016-06-21      05F           
 ##  5 41006043 12 CHAIRS 2016-06-22      10B           
-##  6 41006043 12 CHAIRS 2016-07-21      06D           
-##  7 41006043 12 CHAIRS 2016-07-21      06C           
-##  8 41006043 12 CHAIRS 2016-07-21      10F           
-##  9 41006043 12 CHAIRS 2017-03-02      02G           
-## 10 41006043 12 CHAIRS 2017-03-02      06C           
+##  6 41006043 12 CHAIRS 2016-07-21      06C           
+##  7 41006043 12 CHAIRS 2016-07-21      10F           
+##  8 41006043 12 CHAIRS 2016-07-21      06D           
+##  9 41006043 12 CHAIRS 2017-03-02      06C           
+## 10 41006043 12 CHAIRS 2017-03-02      02G           
 ## # ... with 24 more rows</code></pre>
 <p>I needed the actual number of inspections, and not the number of <strong>violations</strong>.</p>
 <pre class="r"><code>inspections &lt;- restaurants %&gt;%
@@ -99,21 +99,21 @@ top_critical_cuisine</code></pre>
 <pre><code>## # A tibble: 15 x 5
 ##    cuisine_description violations critical non_critical percent_critical
 ##    &lt;chr&gt;                    &lt;int&gt;    &lt;dbl&gt;        &lt;dbl&gt;            &lt;dbl&gt;
-##  1 Indian                    6554     3839         2715            0.586
-##  2 Asian                     6261     3615         2646            0.577
-##  3 Chinese                  40098    23140        16958            0.577
-##  4 Pizza/Italian             8413     4856         3557            0.577
-##  5 Spanish                  11599     6697         4902            0.577
-##  6 Korean                    5159     2971         2188            0.576
-##  7 Delicatessen              6102     3510         2592            0.575
-##  8 Latin                    16772     9590         7182            0.572
-##  9 Thai                      5125     2929         2196            0.572
-## 10 Japanese                 13665     7787         5878            0.570
-## 11 Bakery                   11597     6517         5080            0.562
-## 12 Jewish/Kosher             5641     3146         2495            0.558
-## 13 Italian                  15843     8814         7029            0.556
-## 14 Mexican                  15348     8433         6915            0.549
-## 15 Pizza                    17313     9421         7892            0.544</code></pre>
+##  1 Indian                    6534     3831         2703            0.586
+##  2 Asian                     6219     3598         2621            0.579
+##  3 Spanish                  11615     6709         4906            0.578
+##  4 Chinese                  40065    23125        16940            0.577
+##  5 Korean                    5150     2968         2182            0.576
+##  6 Pizza/Italian             8405     4843         3562            0.576
+##  7 Delicatessen              6144     3534         2610            0.575
+##  8 Latin                    16690     9556         7134            0.573
+##  9 Japanese                 13665     7785         5880            0.570
+## 10 Thai                      5119     2919         2200            0.570
+## 11 Bakery                   11584     6500         5084            0.561
+## 12 Jewish/Kosher             5612     3125         2487            0.557
+## 13 Italian                  15878     8824         7054            0.556
+## 14 Mexican                  15276     8388         6888            0.549
+## 15 Pizza                    17274     9409         7865            0.545</code></pre>
 <p>To generate the plot I wanted, I had to gather the data, as shown below. The last two steps - creating <code>cuisine_gather_totals</code> and left joining with <code>cuisine_gather</code>, was completed after I had made the initial plot. I realized I needed the percentage of critical violations in a different format than <code>cuisine_gather</code> provided.</p>
 <pre class="r"><code>cuisine_gather &lt;- top_critical_cuisine %&gt;%
   dplyr::select(cuisine_description, critical, non_critical) %&gt;%
