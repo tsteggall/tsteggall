@@ -46,10 +46,9 @@ user_groups:
 - Visitors
 ---
 
-I'm an analyst and project manager with 5 years of experience working at the intersection of data analysis and decision making, with a successful track record in both professional sports and politics. 
+My name is Tim Steggall and I'm an analyst and project manager with 5 years of experience working in both sports and politics. With the Rays I coordinated and streamlined the day-to-day operations of the scouting department, and I’m proud to have been part of three successful drafts from 2015 – 2017. In 2018, I moved to California and managed the successful State Assembly campaign for Rebecca Bauer-Kahan.
 
-With the Tampa Bay Rays, I lived the "Moneyball" experience – I was part analyst, scout, coordinator, and project manager, with the primary responsibility of overseeing and optimizing amateur scouting operations. I left the Rays in January 2018, moved to California, and managed the State Assembly campaign for Rebecca Bauer-Kahan. Despite starting with a steep name recognition deficit, we built a $1.5m campaign from the ground up and successfully unseated a two-term incumbent.  
+I plan to use this blog to dive into the R community, continue to develop my technical skills, and showcase my work and thought-process. 
 
-I'm currently living in San Francisco and looking to continue leveraging my skillset to tackle challenging and interesting problems. I plan to use this blog to dive into the R community, continue to develop my technical skills, and showcase my work and thought-process. 
+Outside of the blog/work, I like to run, read, and hang out with my dog. If you have thoughts, questions, ideas, or just general inquiries, please feel free to shoot me an email at <tsteggall@gmail.com>.
 
-If you have thoughts, questions, ideas, or just general inquiries, please feel free to shoot me an email at <tsteggall@gmail.com>.

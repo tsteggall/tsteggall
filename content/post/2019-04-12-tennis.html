@@ -1,0 +1,164 @@
+---
+title: "Tennis Grand slam Champions"
+subtitle: "#TidyTuesday 2019 Week 15"
+author: ["admin"]
+date: '2019-04-12'
+slug: tennis
+categories: ["RStats"]
+tags: ["TidyTuesday", "Shiny"]
+image:
+  caption: ''
+  focal_point: ''
+---
+
+
+
+<p>This week I wanted to use the TidyTuesday project as an opportunity to put together a Shiny app. I don’t follow tennis particularly closely, but I do try to watch highlights of the Grand Slams, so I have some familiarity with the data. I began the analysis with the idea of identifying the “Andy Murrays” of the world - “Second Line” players that had less illustrious careers due to the dominance of the top ranked players. My Shiny app sort of succeeds in this regard - it is easy to identify the top players by time frame, but I wouldn’t say it draws explicit attention to any one particular player. That task falls on the user.</p>
+<p>To compare players and put them on the same scale I added <strong>2019 ATP scores</strong> to the data set for the player’s finishing position as explained in this <a href="https://ftw.usatoday.com/2018/08/atp-wta-tennis-rankings-how-do-they-work-faq-federer-serena-nadal">USA Today article</a>. The ATP has used this ranking system since 2009, but I applied it to the entire dataset. This scale probably doesn’t account for differences between eras, but I think it’s a solid starting point for ranking the players against each other.</p>
+<p>Also, I didn’t do much data cleaning because I was focused on the Shiny app. After watching <a href="https://www.youtube.com/watch?v=YWUCUfEeNJI">David Robinson’s video</a> I probably should have focused on that a tiny bit more, so take any conclusions with a grain of salt.</p>
+<iframe width="1000" height="600" scrolling="no" frameborder="no" src="https://tsteggall.shinyapps.io/tennis/">
+</iframe>
+<div id="takeaways" class="section level3">
+<h3>Takeaways</h3>
+<ul>
+<li>I knew Novak Djokovic was good, but didn’t realize he was quite clearly the best men’s tennis player (based on Grand Slams) from 2010-2019 with almost 10,000 more ATP points earned than Nadal, and 20,000 more points than Federer in that time period.<br />
+</li>
+<li>Federer’s peak period was 2003-2010, when he won 16 of 32 Grand Slams, and earned 20,000 more points than the next closest male competitor (Nadal).</li>
+<li>Serena Williams has dominated women’s tennis for almost 2 decades! Venus had slightly more ATP points from 2000-2005, and there’s a brief window (2004-2008) where Justine Henin is arguably the best women’s tennis player, but after that Serena laps the field. Henin also doesn’t play in as many Grand Slams starting in 2008.</li>
+<li>Steffi Graf must have been unbelievable - she was one of the most efficient players ever, winning 22 Grand Slams in 66 chances, giving her nearly as many ATP points as Evert, Serena, and Navratilova despite playing in at least 10 less Slams.<br />
+</li>
+<li>Based on this scale, Chris Evert has an argument as the best professional tennis player ever, male or female. She has the most ATP points earned in Grand Slam events with 69,060, and she did it relatively efficiently having only played in 76 total tournaments.</li>
+</ul>
+</div>
+<div id="setupdata" class="section level3">
+<h3>Setup/Data</h3>
+<pre class="r"><code>library(tidyverse)
+library(lubridate)
+library(shiny)
+library(rsconnect)
+
+theme_set(theme_timmin())
+
+player_dob &lt;- readr::read_csv(&quot;https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2019/2019-04-09/player_dob.csv&quot;)
+
+grand_slams &lt;- readr::read_csv(&quot;https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2019/2019-04-09/grand_slams.csv&quot;)
+
+grand_slam_timeline &lt;- readr::read_csv(&quot;https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2019/2019-04-09/grand_slam_timeline.csv&quot;)</code></pre>
+<p>As mentioned above, I didn’t do much actual cleaning of the data, but I did create a new column with the correct number of ATP points for a given tournament outcome.</p>
+<pre class="r"><code>grand_slam_timeline &lt;- grand_slam_timeline %&gt;%
+  drop_na(outcome) %&gt;%
+  filter(outcome != &quot;Retired&quot;)
+
+player_rankings &lt;- grand_slam_timeline %&gt;%
+  mutate(atp_points = case_when(
+      outcome %in% c(&quot;Lost Qualifier&quot;, &quot;Qualification Stage 1&quot;, &quot;Qualification Stage 2&quot;, &quot;Absent&quot;) ~ 0,
+      outcome == &quot;1st Round&quot; ~ 10,
+      outcome == &quot;2nd Round&quot; ~ 45, 
+      outcome == &quot;3rd Round&quot; ~ 90,
+      outcome == &quot;4th Round&quot; ~ 180,
+      outcome == &quot;Quarterfinalist&quot; ~ 360,
+      outcome == &quot;Semi-finalist&quot; ~ 720,
+      outcome == &quot;Finalist&quot; ~ 1200,
+      outcome == &quot;Won&quot; ~ 2000
+  ))</code></pre>
+</div>
+<div id="shiny-app-code" class="section level3">
+<h3>Shiny App Code</h3>
+<pre class="r"><code># Define UI for application that plots ATP points from Grand slams
+ui &lt;- fluidPage(
+
+    # Application title
+    titlePanel(&quot;Grand Slam Tennis Championships&quot;),
+
+    # Sidebar with Inputs for Date Range, Tournaments, and Gender 
+    sidebarLayout(
+        sidebarPanel(
+            sliderInput(&quot;years&quot;,
+                        &quot;Time Range:&quot;,
+                        min = min(player_rankings$year),
+                        max = max(player_rankings$year),
+                        value = c(1968, 2019),
+                        sep = &quot;&quot;),
+            selectInput(&quot;tournaments&quot;, &quot;Select Tournaments&quot;, 
+                        choices = player_rankings$tournament,
+                        multiple = TRUE,
+                        selected = c(&quot;Australian Open&quot;, &quot;US Open&quot;, &quot;Wimbledon&quot;, &quot;French Open&quot;)),
+            selectInput(&quot;gender&quot;, &quot;Select gender&quot;,
+                        choices = player_rankings$gender,
+                        multiple = TRUE,
+                        selected = c(&quot;Male&quot;, &quot;Female&quot;))
+        ),
+
+        # Show a scatterplot of ATP points vs # of Tournaments played
+        mainPanel(
+           plotOutput(&quot;plot&quot;,
+                      click = &quot;plot_click&quot;),
+                      
+           
+           ### Attempt to add Row of Info below the plot
+           tableOutput(&quot;info&quot;)
+        )
+    )
+)
+
+# Define server logic required to draw a histogram
+server &lt;- function(input, output) {
+
+    output$plot &lt;- renderPlot({
+        # generate plot based on player rankings data
+        
+        data &lt;- subset(player_rankings,
+                       tournament %in% input$tournaments &amp;
+                           year &gt;= input$years[1] &amp; year &lt;= input$years[2] &amp;
+                           gender %in% input$gender) %&gt;%
+            rename(Player = player, Gender = gender) %&gt;%
+            group_by(Player, Gender) %&gt;%
+            summarize(`Total ATP Points` = sum(atp_points),
+                      `Total Grand Slams` = n())
+        
+        p &lt;- ggplot(data, aes(`Total Grand Slams`, `Total ATP Points`, col = Gender)) +
+            geom_jitter(alpha = 0.75, size = 3) +
+            scale_color_timmin(palette = &quot;main&quot;, reverse = TRUE) +
+            labs(x = &quot;# of Grand Slams&quot;,
+                 y = &quot;Total ATP Points Earned&quot;,
+                 color = &quot;Gender&quot;,
+                 caption = &quot;Data Source: Wikipedia&quot;)
+        
+        p
+
+    })
+    
+    # Attempt to add row of info below plot
+    
+    output$info &lt;- renderTable({
+        
+    table_data &lt;- subset(player_rankings,
+                         tournament %in% input$tournaments &amp;
+                             year &gt;= input$years[1] &amp; year &lt;= input$years[2] &amp;
+                             gender %in% input$gender) %&gt;%
+        rename(Player = player, Gender = gender) %&gt;%
+        group_by(Player, Gender) %&gt;%
+        summarize(`Total Grand Slams` = n(),
+                  Victories = sum(outcome == &quot;Won&quot;),
+                  `Total ATP Points` = as.integer(sum(atp_points))
+                  )
+    
+        nearPoints(table_data, input$plot_click)
+    })
+}
+
+# Run the application 
+shinyApp(ui = ui, server = server)</code></pre>
+</div>
+<div id="resourcesfurther-reading" class="section level3">
+<h3>Resources/Further Reading</h3>
+<p><a href="https://stackoverflow.com/questions/47764096/adjust-the-size-of-an-embedded-shiny-app-within-rmarkdown-document">Embedding a Shiny app in Blogdown:</a> Stack Overflow article that pointed the way to using an iframe to embed the Shiny app.</p>
+<p><a href="https://deanattali.com/blog/advanced-shiny-tips/">Dean Attali’s blog:</a> Amazing Shiny resource for improving your app.</p>
+<p><a href="https://shiny.rstudio.com/">Shiny from R Studio:</a> The Shiny homepage with straightforward instructions and cheat sheets, including a Shinyapps.io “Getting Started” tutorial. Shoutout to the R Studio team for making this so amazingly user friendly.</p>
+<div id="tennis" class="section level4">
+<h4>Tennis</h4>
+<p><a href="https://www.nytimes.com/2006/08/20/sports/playmagazine/20federer.html">Roger Federer as Religious Experience by David Foster Wallace:</a> I’m a huge fan of DFW, and this is one of his best pieces. I read it pretty much every year around Wimbledon. Highly recommend.</p>
+<p><a href="https://www.amazon.com/dp/B003062GEE/ref=dp-kindle-redirect?_encoding=UTF8&amp;btkr=1">Open: An Autobiography by Andre Agassi</a> One of the best biographies I’ve ever read. Direct insight into what it takes to be the best in the world at something, and how excelling in one area can severely stunt you in others. Honest, raw depiction of a world class athlete.</p>
+<p><a href="https://www.esquire.com/sports/a5151/the-string-theory-david-foster-wallace/">The String Theory by David Foster Wallace:</a> Another essay by DFW, this time focusing on Michael Joyce. Similar to <em>Open</em>, this essay focuses on the single-mindedness and sacrifices necessary to become a world class athlete (or anything really).</p>
+</div>
+</div>
